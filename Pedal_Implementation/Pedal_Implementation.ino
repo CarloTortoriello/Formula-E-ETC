@@ -14,7 +14,7 @@ uint8_t counter_Stuck = 0;
 #define analogPin3g A1  // 3.3V Gas Input
 // #define analogWritePin A0
 
-#define calibration_interrupt_pin 2 // Input Button, toggles the calibration state
+#define calibration_interrupt_pin D2 // Input Button, toggles the calibration state
 #define brake_state_pin D12
 #define implausibility_led D6 // Output LED, indicates if implausibility is detected
 #define throttle_led D7 // Output LED, indicates if we outputting an accel value above
@@ -33,8 +33,8 @@ bool brakes_engaged = true;
 uint8_t brake_pedal_travel; // was brakeperc, same as above
 
 // Defining variables & initializing them as zero for potentiometer readings and calculated percentages
-uint8_t analog_in_5Vacc = 0;
-uint8_t analog_in_3Vacc = 0;
+uint16_t analog_in_5Vacc = 0;
+uint16_t analog_in_3Vacc = 0;
 
 uint8_t percent_5g = 0;
 uint8_t percent_3g = 0;
@@ -95,8 +95,7 @@ void setup() {
 
 void loop() {
   //TODO something has to RESET implausibility FLAGS
-  brake_implausibility=0;
-
+  
   calibration_pin_state = digitalRead(calibration_interrupt_pin);
   if (calibration_pin_state == 1) {
     calibration_reset();
@@ -213,8 +212,7 @@ void read_accel_pedal_travel() {
   if (analog_in_3Vacc > accel_3v_max + pedal_deadzone_thres_3v && counter_3v > 28) accel_3v_max = analog_in_3Vacc;
   if (analog_in_3Vacc < accel_3v_min - pedal_deadzone_thres_3v && counter_3v > 28) accel_3v_min = analog_in_3Vacc;
 
-  //piecewise approx
-  percent_5g=piecewise_throttle(&percent_5g);
+  piecewise_throttle(&analog_in_5Vacc);
   //percentage mapping of throttles
   percent_5g = constrain(map(analog_in_5Vacc, accel_5v_min, accel_5v_max, 0, 100), 0, 100);
   percent_3g = constrain(map(analog_in_3Vacc, accel_3v_min, accel_3v_max, 0, 100), 0, 100);
@@ -234,8 +232,11 @@ void read_accel_pedal_travel() {
     counter_Stuck = 0;
   }
 
+
   // Pedal implausibility check
-  if (abs(percent_5g - percent_3g) > pedal_implausibility_thres) { 
+  if (abs(percent_5g - percent_3g) > pedal_implausibility_thres) {
+
+
     pedal_implausibility = true;
     pedal_implausibility_timer = millis(); //sample the implausibility time
   }
@@ -286,8 +287,8 @@ void print_state() {
 }
 
 
-void piecewise_throttle(__uint128_t* pedal_acc ) {              // 10 bit dac
-  __uint128_t x=(*pedal_acc&(x1-1));                 //last 8 bit
+void piecewise_throttle(uint16_t* pedal_acc ) {              // 10 bit dac
+  uint16_t x=(*pedal_acc&(x1-1));                 //last 8 bit
 
   Serial.print("\n Throttle 5v Before:");
   Serial.print(*pedal_acc);
